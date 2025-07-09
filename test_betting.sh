@@ -5,7 +5,7 @@ echo "=== Sports Betting API Test Suite ==="
 
 # Get authentication token
 echo "Getting authentication token..."
-TOKEN=$(curl -s -X POST "http://localhost:5163/api/auth/login" \
+TOKEN=$(curl -s -X POST "http://localhost:5002/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email": "testuser@example.com", "password": "SecurePassword123"}' | \
   python3 -c "import sys, json; print(json.load(sys.stdin)['data']['token'])")
@@ -20,7 +20,7 @@ echo ""
 
 # Test 1: Preview Bet
 echo "=== TEST 1: Preview Bet ==="
-curl -s -X POST "http://localhost:5163/api/bets/preview" \
+curl -s -X POST "http://localhost:5002/api/bets/preview" \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -39,7 +39,7 @@ echo ""
 
 # Test 2: Create Bet
 echo "=== TEST 2: Create Bet ==="
-curl -s -X POST "http://localhost:5163/api/bets" \
+curl -s -X POST "http://localhost:5002/api/bets" \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -58,7 +58,7 @@ echo ""
 
 # Test 3: Get My Bets
 echo "=== TEST 3: Get My Bets ==="
-curl -s -X GET "http://localhost:5163/api/bets/my-bets" \
+curl -s -X GET "http://localhost:5002/api/bets/my-bets" \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Accept: application/json" > mybets_response.json
 
@@ -72,7 +72,7 @@ echo ""
 
 # Test 4: Get Bet Statistics
 echo "=== TEST 4: Get Bet Statistics ==="
-curl -s -X GET "http://localhost:5163/api/bets/my-stats" \
+curl -s -X GET "http://localhost:5002/api/bets/my-stats" \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Accept: application/json" > stats_response.json
 
@@ -86,7 +86,7 @@ echo ""
 
 # Test 5: Get Bet History
 echo "=== TEST 5: Get Bet History ==="
-curl -s -X GET "http://localhost:5163/api/bets/history?page=1&pageSize=10" \
+curl -s -X GET "http://localhost:5002/api/bets/history?page=1&pageSize=10" \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Accept: application/json" > history_response.json
 

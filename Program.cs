@@ -188,15 +188,12 @@ builder.Services.AddLogging(logging =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Sports Betting API v1");
-        options.RoutePrefix = "docs";
-    });
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Sports Betting API v1");
+    options.RoutePrefix = app.Environment.IsDevelopment() ? string.Empty : "docs";
+});
 
 app.UseCors("DevelopmentPolicy");
 
