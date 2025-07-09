@@ -1,0 +1,132 @@
+# =============================================================================
+# SPORTS BETTING API - DOCKER COMPOSE DEVELOPMENT
+# =============================================================================
+# Configuración para desarrollo con hot reload y debugging
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # PostgreSQL Database Service
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ${POSTGRES_CONTAINER_NAME:-sportsbetting_postgres_dev}
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sportsbetting_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_123}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    
+    ports:
+      - "${POSTGRES_EXTERNAL_PORT:-5433}:5432"
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    
+    networks:
+      - sportsbetting_network
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sportsbetting_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # =============================================================================
+  # Sports Betting API Service
+  # =============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    container_name: ${API_CONTAINER_NAME:-sportsbetting_api_dev}
+    restart: unless-stopped
+    
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnection=${DATABASE_URL}
+      - JwtSettings__Secret=${JWT_SECRET}
+      - JwtSettings__Issuer=${JWT_ISSUER}
+      - JwtSettings__Audience=${JWT_AUDIENCE}
+      - JwtSettings__TokenExpirationDays=${JWT_EXPIRATION_DAYS:-7}
+      - UserSettings__InitialBalance=${INITIAL_BALANCE:-1000.00}
+      - UserSettings__MinBetAmount=${MIN_BET_AMOUNT:-1.00}
+      - UserSettings__MaxBetAmount=${MAX_BET_AMOUNT:-1000.00}
+      - Logging__LogLevel__Default=${LOG_LEVEL:-Information}
+      - Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command=Information
+    
+    ports:
+      - "${API_PORT:-5000}:5000"
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    networks:
+      - sportsbetting_network
+    
+    volumes:
+      - ./logs:/app/logs
+      - ./temp:/app/temp
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =============================================================================
+  # pgAdmin (Optional - for database management)
+  # =============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: sportsbetting_pgadmin_dev
+    restart: unless-stopped
+    
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@sportsbetting.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    
+    ports:
+      - "5050:80"
+    
+    depends_on:
+      - postgres
+    
+    networks:
+      - sportsbetting_network
+    
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    
+    profiles:
+      - tools
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  sportsbetting_network:
+    driver: bridge
+    name: ${NETWORK_NAME:-sportsbetting_network_dev}
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+    name: sportsbetting_postgres_data_dev
+  
+  pgadmin_data:
+    driver: local
+    name: sportsbetting_pgadmin_data_dev
