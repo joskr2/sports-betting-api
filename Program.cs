@@ -37,10 +37,10 @@ builder.Services.AddControllers()
     options.InvalidModelStateResponseFactory = context =>
     {
         var errors = context.ModelState
-            .Where(e => e.Value.Errors.Count > 0)
+            .Where(e => e.Value?.Errors.Count > 0)
             .ToDictionary(
                 kvp => kvp.Key,
-                kvp => kvp.Value.Errors.Select(e => e.ErrorMessage).ToArray()
+                kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToArray() ?? Array.Empty<string>()
             );
         
         return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(new

@@ -162,7 +162,7 @@ namespace SportsBetting.Api.Presentation.Controllers
         [HttpPost("logout")]
         [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> Logout()
+        public IActionResult Logout()
         {
             try
             {
