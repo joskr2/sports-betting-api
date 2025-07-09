@@ -7,7 +7,7 @@ echo "=== Sports Betting API Test Suite ==="
 echo "Getting authentication token..."
 TOKEN=$(curl -s -X POST "http://localhost:5002/api/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email": "testuser@example.com", "password": "SecurePassword123"}' | \
+  -d '{"email": "cleantest@example.com", "password": "SecurePassword123"}' | \
   python3 -c "import sys, json; print(json.load(sys.stdin)['data']['token'])")
 
 if [ -z "$TOKEN" ]; then

@@ -35,7 +35,7 @@ namespace SportsBetting.Api.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> CreateBet([FromBody] CreateBetDto betDto)
         {
-            return await HandleActionAsync<IActionResult>(async () =>
+            try
             {
                 var userId = GetCurrentUserId();
                 var userEmail = GetCurrentUserEmail();
@@ -64,7 +64,7 @@ namespace SportsBetting.Api.Presentation.Controllers
                 if (result == null)
                 {
                     _logger.LogError("Bet creation failed for user {UserId} despite validation passing", userId);
-                    throw new InvalidOperationException("Bet creation failed unexpectedly");
+                    return ErrorResponse("Bet creation failed unexpectedly", 500);
                 }
                 
                 _logger.LogInformation("Bet created successfully - ID: {BetId}, User: {UserId}, Amount: {Amount:C}", 
@@ -74,8 +74,23 @@ namespace SportsBetting.Api.Presentation.Controllers
                     "Amount: {Amount:C}, Odds: {Odds}, PotentialWin: {PotentialWin:C}", 
                     result.Id, userId, result.EventId, result.Amount, result.Odds, result.PotentialWin);
                 
-                return Created($"/api/bets/{result.Id}", result);
-            }, "CreateBet");
+                return SuccessResponse(result, "Bet created successfully");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access during CreateBet");
+                return ErrorResponse("Unauthorized access", 401);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid argument during CreateBet");
+                return ErrorResponse(ex.Message, 400);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during CreateBet");
+                return ErrorResponse("An unexpected error occurred", 500);
+            }
         }
         
 
