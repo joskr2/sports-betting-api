@@ -5,6 +5,9 @@
 
 # dotenv files
 .env
+.env.local
+
+api.pid
 
 # User-specific files
 *.rsuser
@@ -156,6 +159,9 @@ coverage*.info
 # Visual Studio code coverage results
 *.coverage
 *.coveragexml
+.claude
+.claude/
+.claude/settings.local.json
 
 # NCrunch
 _NCrunch_*
@@ -482,3 +488,4 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+.claude/settings.local.json
