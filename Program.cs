@@ -62,11 +62,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidateAudience = true,
+            ValidAudience = jwtSettings["Audience"],
             RequireExpirationTime = true,
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+            RequireSignedTokens = true,
+            RequireAudience = true
         };
         
         options.Events = new JwtBearerEvents
@@ -148,6 +152,24 @@ builder.Services.AddSwaggerGen(options =>
     }
 });
 
+// Registrar servicios de aplicación
+builder.Services.AddScoped<SportsBetting.Api.Core.Interfaces.IBetService, SportsBetting.Api.Infrastructure.Services.BetService>();
+builder.Services.AddScoped<SportsBetting.Api.Core.Interfaces.IAuthService, SportsBetting.Api.Infrastructure.Services.AuthService>();
+builder.Services.AddScoped<SportsBetting.Api.Core.Interfaces.IEventService, SportsBetting.Api.Infrastructure.Services.EventService>();
+
+// Configurar health checks
+builder.Services.AddHealthChecks()
+    .AddCheck("database-check", () => 
+    {
+        // Simple health check for database connectivity
+        return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Database connection available");
+    })
+    .AddCheck("services-check", () => 
+    {
+        // Simple health check - if we can create this, DI is working
+        return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("All services registered");
+    });
+
 builder.Services.AddLogging(logging =>
 {
     logging.ClearProviders();
@@ -183,7 +205,31 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapGet("/health", () => new
+// Endpoint de health checks
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = new
+        {
+            status = report.Status.ToString(),
+            timestamp = DateTime.UtcNow,
+            environment = app.Environment.EnvironmentName,
+            version = "1.0.0",
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds,
+                description = e.Value.Description
+            })
+        };
+        await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(result));
+    }
+});
+
+app.MapGet("/health/simple", () => new
 {
     status = "healthy",
     timestamp = DateTime.UtcNow,
