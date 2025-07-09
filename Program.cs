@@ -308,5 +308,5 @@ static string BuildConnectionString(IConfiguration configuration)
     }
     
     // Si no hay cadena base, construir desde cero
-    return $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode=Require;Trust Server Certificate=true";
+    return $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode=Disable";
 }

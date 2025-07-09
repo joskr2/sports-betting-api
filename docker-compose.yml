@@ -3,7 +3,6 @@
 # =============================================================================
 # Configuración para desarrollo con hot reload y debugging
 
-version: '3.8'
 
 services:
   # =============================================================================
@@ -63,7 +62,7 @@ services:
       - Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command=Information
     
     ports:
-      - "${API_PORT:-5000}:5000"
+      - "${API_PORT:-5002}:5000"
     
     depends_on:
       postgres:
@@ -125,8 +124,8 @@ networks:
 volumes:
   postgres_data:
     driver: local
-    name: sportsbetting_postgres_data_dev
+    name: ${POSTGRES_VOLUME_NAME:-sportsbetting_postgres_data_dev}
   
   pgadmin_data:
     driver: local
-    name: sportsbetting_pgadmin_data_dev
+    name: ${PGADMIN_VOLUME_NAME:-sportsbetting_pgadmin_data_dev}
