@@ -26,94 +26,99 @@ namespace SportsBetting.Api.Infrastructure.Services
 
         public async Task<BetResponseDto?> CreateBetAsync(int userId, CreateBetDto betDto)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            var executionStrategy = _context.Database.CreateExecutionStrategy();
             
-            try
+            return await executionStrategy.ExecuteAsync(async () =>
             {
-                _logger.LogInformation("Creating bet for user {UserId} on event {EventId}", userId, betDto.EventId);
+                using var transaction = await _context.Database.BeginTransactionAsync();
                 
-                var validationResult = await ValidateBetAsync(userId, betDto);
-                if (!validationResult.IsValid)
+                try
                 {
-                    _logger.LogWarning("Bet validation failed for user {UserId}: {Errors}", 
-                        userId, string.Join(", ", validationResult.Errors));
-                    return null;
-                }
+                    _logger.LogInformation("Creating bet for user {UserId} on event {EventId}", userId, betDto.EventId);
+                    
+                    var validationResult = await ValidateBetAsync(userId, betDto);
+                    if (!validationResult.IsValid)
+                    {
+                        _logger.LogWarning("Bet validation failed for user {UserId}: {Errors}", 
+                            userId, string.Join(", ", validationResult.Errors));
+                        return null;
+                    }
+                    
+                    var user = await _context.Users
+                        .Where(u => u.Id == userId)
+                        .FirstOrDefaultAsync();
+                    
+                    var eventEntity = await _context.Events
+                        .Where(e => e.Id == betDto.EventId)
+                        .FirstOrDefaultAsync();
                 
-                var user = await _context.Users
-                    .Where(u => u.Id == userId)
-                    .FirstOrDefaultAsync();
-                
-                var eventEntity = await _context.Events
-                    .Where(e => e.Id == betDto.EventId)
-                    .FirstOrDefaultAsync();
-                
-                if (user != null)
-                {
-                    _context.Entry(user).Reload();
-                }
-                if (eventEntity != null)
-                {
-                    _context.Entry(eventEntity).Reload();
-                }
-                
-                if (user == null || eventEntity == null)
-                {
-                    _logger.LogError("User or event not found during bet creation");
-                    return null;
-                }
-                
-                if (!user.DeductBalance(betDto.Amount))
-                {
-                    _logger.LogWarning("Insufficient balance for user {UserId}. Balance: {Balance}, Amount: {Amount}", 
-                        userId, user.Balance, betDto.Amount);
-                    return null;
-                }
-                
-                var currentOdds = eventEntity.GetOddsForTeam(betDto.SelectedTeam);
-                
-                var bet = new Bet
-                {
-                    UserId = userId,
-                    EventId = betDto.EventId,
-                    SelectedTeam = betDto.SelectedTeam,
-                    Amount = betDto.Amount,
-                    Odds = currentOdds,
-                    Status = BetStatus.Active,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                
-                _context.Bets.Add(bet);
-                await _context.SaveChangesAsync();
+                    if (user != null)
+                    {
+                        _context.Entry(user).Reload();
+                    }
+                    if (eventEntity != null)
+                    {
+                        _context.Entry(eventEntity).Reload();
+                    }
+                    
+                    if (user == null || eventEntity == null)
+                    {
+                        _logger.LogError("User or event not found during bet creation");
+                        return null;
+                    }
+                    
+                    if (!user.DeductBalance(betDto.Amount))
+                    {
+                        _logger.LogWarning("Insufficient balance for user {UserId}. Balance: {Balance}, Amount: {Amount}", 
+                            userId, user.Balance, betDto.Amount);
+                        return null;
+                    }
+                    
+                    var currentOdds = eventEntity.GetOddsForTeam(betDto.SelectedTeam);
+                    
+                    var bet = new Bet
+                    {
+                        UserId = userId,
+                        EventId = betDto.EventId,
+                        SelectedTeam = betDto.SelectedTeam,
+                        Amount = betDto.Amount,
+                        Odds = currentOdds,
+                        Status = BetStatus.Active,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    
+                    _context.Bets.Add(bet);
+                    await _context.SaveChangesAsync();
 
-                await transaction.CommitAsync();
-                
-                _logger.LogInformation("Bet created successfully with ID: {BetId} for user {UserId}", bet.Id, userId);
-                
-                return new BetResponseDto
+                    await transaction.CommitAsync();
+                    
+                    _logger.LogInformation("Bet created successfully with ID: {BetId} for user {UserId}", bet.Id, userId);
+                    
+                    return new BetResponseDto
+                    {
+                        Id = bet.Id,
+                        EventId = bet.EventId,
+                        EventName = eventEntity.Name,
+                        SelectedTeam = bet.SelectedTeam,
+                        Amount = bet.Amount,
+                        Odds = bet.Odds,
+                        PotentialWin = bet.PotentialWin,
+                        Status = bet.Status.ToString(),
+                        CreatedAt = bet.CreatedAt,
+                        EventStatus = eventEntity.Status.ToString(),
+                        EventDate = eventEntity.EventDate,
+                        CanBeCancelled = bet.CanBeCancelled(),
+                        TimeUntilEvent = GetTimeUntilEvent(eventEntity.EventDate)
+                    };
+                }
+                catch (Exception ex)
                 {
-                    Id = bet.Id,
-                    EventId = bet.EventId,
-                    EventName = eventEntity.Name,
-                    SelectedTeam = bet.SelectedTeam,
-                    Amount = bet.Amount,
-                    Odds = bet.Odds,
-                    PotentialWin = bet.PotentialWin,
-                    Status = bet.Status.ToString(),
-                    CreatedAt = bet.CreatedAt,
-                    EventStatus = eventEntity.Status.ToString(),
-                    EventDate = eventEntity.EventDate,
-                    CanBeCancelled = bet.CanBeCancelled(),
-                    TimeUntilEvent = GetTimeUntilEvent(eventEntity.EventDate)
-                };
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error creating bet for user {UserId} on event {EventId}", userId, betDto.EventId);
-                throw;
-            }
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error creating bet for user {UserId} on event {EventId}", userId, betDto.EventId);
+                    throw;
+                }
+            });
         }
         
 
@@ -297,54 +302,63 @@ namespace SportsBetting.Api.Infrastructure.Services
 
         public async Task<bool> CancelBetAsync(int userId, int betId)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            var executionStrategy = _context.Database.CreateExecutionStrategy();
             
-            try
+            return await executionStrategy.ExecuteAsync(async () =>
             {
-                _logger.LogInformation("Attempting to cancel bet {BetId} for user {UserId}", betId, userId);
+                using var transaction = await _context.Database.BeginTransactionAsync();
                 
-                var bet = await _context.Bets
-                    .Include(b => b.Event)
-                    .Include(b => b.User)
-                    .FirstOrDefaultAsync(b => b.Id == betId && b.UserId == userId);
-                
-                if (bet == null)
+                try
                 {
-                    _logger.LogWarning("Bet not found or user mismatch: {BetId}, {UserId}", betId, userId);
-                    return false;
-                }
-                
-                if (!bet.CanBeCancelled())
-                {
-                    _logger.LogWarning("Bet cannot be cancelled: {BetId}", betId);
-                    return false;
-                }
+                    _logger.LogInformation("Attempting to cancel bet {BetId} for user {UserId}", betId, userId);
+                    
+                    var bet = await _context.Bets
+                        .Include(b => b.Event)
+                        .Include(b => b.User)
+                        .FirstOrDefaultAsync(b => b.Id == betId && b.UserId == userId);
+                    
+                    if (bet == null)
+                    {
+                        _logger.LogWarning("Bet not found or user mismatch: {BetId}, {UserId}", betId, userId);
+                        return false;
+                    }
+                    
+                    if (!bet.CanBeCancelled())
+                    {
+                        _logger.LogWarning("Bet cannot be cancelled: {BetId}", betId);
+                        return false;
+                    }
 
-                var refundAmount = bet.ProcessRefund();
-                bet.User.AddToBalance(refundAmount);
-                
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-                
-                _logger.LogInformation("Bet {BetId} cancelled successfully, refunded {Amount:C}", betId, refundAmount);
-                
-                return true;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error cancelling bet {BetId} for user {UserId}", betId, userId);
-                throw;
-            }
+                    var refundAmount = bet.ProcessRefund();
+                    bet.User.AddToBalance(refundAmount);
+                    
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    
+                    _logger.LogInformation("Bet {BetId} cancelled successfully, refunded {Amount:C}", betId, refundAmount);
+                    
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error cancelling bet {BetId} for user {UserId}", betId, userId);
+                    throw;
+                }
+            });
         }
         
 
         public async Task<BetSettlementResultDto> SettleEventBetsAsync(int eventId, string winnerTeam)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            var executionStrategy = _context.Database.CreateExecutionStrategy();
             
-            try
+            return await executionStrategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                
+                try
+                {
                 _logger.LogInformation("Settling bets for event {EventId}, winner: {WinnerTeam}", eventId, winnerTeam);
                 
                 var eventEntity = await _context.Events
@@ -385,24 +399,25 @@ namespace SportsBetting.Api.Infrastructure.Services
                     }
                 }
                 
-                result.TotalBetsProcessed = result.WinningBets + result.LosingBets;
-                
-                eventEntity.FinishEvent();
-                
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-                
-                _logger.LogInformation("Event {EventId} settled: {TotalBets} bets processed, {Payouts:C} in payouts", 
-                    eventId, result.TotalBetsProcessed, result.TotalPayouts);
-                
-                return result;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error settling bets for event {EventId}", eventId);
-                throw;
-            }
+                    result.TotalBetsProcessed = result.WinningBets + result.LosingBets;
+                    
+                    eventEntity.FinishEvent();
+                    
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    
+                    _logger.LogInformation("Event {EventId} settled: {TotalBets} bets processed, {Payouts:C} in payouts", 
+                        eventId, result.TotalBetsProcessed, result.TotalPayouts);
+                    
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error settling bets for event {EventId}", eventId);
+                    throw;
+                }
+            });
         }
         
         private string GetTimeUntilEvent(DateTime eventDate)

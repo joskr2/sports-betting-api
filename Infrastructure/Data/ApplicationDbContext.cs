@@ -120,6 +120,8 @@ namespace SportsBetting.Api.Infrastructure.Data
         
         private void SeedData(ModelBuilder modelBuilder)
         {
+            var baseDate = new DateTime(2025, 7, 10, 0, 0, 0, DateTimeKind.Utc);
+            
             var events = new List<Event>
             {
                 new Event
@@ -130,10 +132,10 @@ namespace SportsBetting.Api.Infrastructure.Data
                     TeamB = "Barcelona",
                     TeamAOdds = 2.10m,
                     TeamBOdds = 1.95m,
-                    EventDate = DateTime.UtcNow.AddDays(7),
+                    EventDate = baseDate.AddDays(7),
                     Status = EventStatus.Upcoming,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = baseDate,
+                    UpdatedAt = baseDate
                 },
                 new Event
                 {
@@ -143,10 +145,10 @@ namespace SportsBetting.Api.Infrastructure.Data
                     TeamB = "Chelsea",
                     TeamAOdds = 1.85m,
                     TeamBOdds = 2.00m,
-                    EventDate = DateTime.UtcNow.AddDays(5),
+                    EventDate = baseDate.AddDays(5),
                     Status = EventStatus.Upcoming,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = baseDate,
+                    UpdatedAt = baseDate
                 },
                 new Event
                 {
@@ -156,10 +158,10 @@ namespace SportsBetting.Api.Infrastructure.Data
                     TeamB = "Arsenal",
                     TeamAOdds = 1.75m,
                     TeamBOdds = 2.20m,
-                    EventDate = DateTime.UtcNow.AddDays(10),
+                    EventDate = baseDate.AddDays(10),
                     Status = EventStatus.Upcoming,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = baseDate,
+                    UpdatedAt = baseDate
                 }
             };
             

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet run)",
+      "Bash(dotnet ef migrations:*)",
+      "Bash(dotnet ef database:*)",
+      "Bash(curl:*)",
+      "Bash(dotnet build)",
+      "Bash(chmod:*)",
+      "Bash(./test_betting.sh:*)",
+      "Bash(sed:*)",
+      "Bash(./test_errors.sh:*)"
+    ],
+    "deny": []
+  }
+}
