@@ -133,7 +133,7 @@ namespace SportsBetting.Api.Infrastructure.Services
         {
             try
             { 
-                var secretKey = _configuration["JwtSettings:Secret"] 
+                var secretKey = _configuration["JwtSettings:SecretKey"] 
                     ?? throw new InvalidOperationException("JWT secret key not configured");
                 
                 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
@@ -178,7 +178,7 @@ namespace SportsBetting.Api.Infrastructure.Services
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var secretKey = _configuration["JwtSettings:Secret"] 
+                var secretKey = _configuration["JwtSettings:SecretKey"] 
                     ?? throw new InvalidOperationException("JWT secret key not configured");
                 
                 var key = Encoding.UTF8.GetBytes(secretKey);
