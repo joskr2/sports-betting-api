@@ -1,9 +1,15 @@
+
 # =============================================================================
 # SPORTS BETTING API - DOCKER COMPOSE PRODUCTION
 # =============================================================================
-# Configuración optimizada para producción con seguridad y performance
-
-version: '3.8'
+# Production-ready configuration with security and performance optimizations
+# 
+# Prerequisites:
+# 1. Create secrets: docker secret create db_password /path/to/db_password.txt
+# 2. Create secrets: docker secret create jwt_secret /path/to/jwt_secret.txt
+# 3. Ensure SSL certificates are available in ./ssl/ directory
+# 4. Review and update all environment variables
+# =============================================================================
 
 services:
   # =============================================================================
@@ -12,40 +18,57 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: ${POSTGRES_CONTAINER_NAME:-sportsbetting_postgres_prod}
-    restart: always
+    restart: unless-stopped
     
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sportsbetting_prod}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:-sportsbetting_user}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      # SSL Configuration
+      POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_SSL_MODE: require
     
-    ports:
-      - "${POSTGRES_EXTERNAL_PORT:-5432}:5432"
+    secrets:
+      - source: db_password
+        target: /run/secrets/postgres_password
+        uid: '999'
+        gid: '999'
+        mode: 0600
+    
+    # NO EXPOSED PORTS - Database should only be accessible internally
     
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-      - ./backups:/backups
+      - postgres_backups:/backups
+      - ./scripts/init-db-prod.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./postgres/ssl:/var/lib/postgresql/ssl:ro
+      - ./postgres/conf/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     
     networks:
-      - sportsbetting_network
+      - sportsbetting_backend
     
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sportsbetting_prod}"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sportsbetting_user} -d ${POSTGRES_DB:-sportsbetting_prod}"]
+      interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 30s
     
     deploy:
       resources:
         limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
           memory: 1G
           cpus: '1.0'
-        reservations:
-          memory: 512M
-          cpus: '0.5'
+    
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/ssl/server.crt
+      -c ssl_key_file=/var/lib/postgresql/ssl/server.key
 
   # =============================================================================
   # Sports Betting API Service
@@ -54,46 +77,56 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runtime
     
-    container_name: ${API_CONTAINER_NAME:-sportsbetting_api_prod}
-    restart: always
+    restart: unless-stopped
     
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
       - ConnectionStrings__DefaultConnection=${DATABASE_URL}
-      - JwtSettings__Secret=${JWT_SECRET}
-      - JwtSettings__Issuer=${JWT_ISSUER}
-      - JwtSettings__Audience=${JWT_AUDIENCE}
+      - JwtSettings__Issuer=${JWT_ISSUER:-SportsBettingAPI}
+      - JwtSettings__Audience=${JWT_AUDIENCE:-SportsBettingClients}
       - JwtSettings__TokenExpirationDays=${JWT_EXPIRATION_DAYS:-1}
       - UserSettings__InitialBalance=${INITIAL_BALANCE:-1000.00}
       - UserSettings__MinBetAmount=${MIN_BET_AMOUNT:-1.00}
       - UserSettings__MaxBetAmount=${MAX_BET_AMOUNT:-10000.00}
-      - Logging__LogLevel__Default=${LOG_LEVEL:-Warning}
-      - Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command=Warning
+      - Logging__LogLevel__Default=Warning
+      - Logging__LogLevel__Microsoft=Error
+      - Logging__LogLevel__System=Error
+      - Logging__LogLevel__Microsoft.EntityFrameworkCore=Warning
+      - DOTNET_RUNNING_IN_CONTAINER=true
+      - DOTNET_GCServer=true
+      - DOTNET_GCConcurrent=true
     
-    ports:
-      - "${API_PORT:-5000}:5000"
+    secrets:
+      - jwt_secret
+      - source: db_connection
+        target: /run/secrets/db_connection
+    
+    # NO EXPOSED PORTS - API should only be accessible through reverse proxy
+    
+    networks:
+      - sportsbetting_backend
     
     depends_on:
       postgres:
         condition: service_healthy
     
-    networks:
-      - sportsbetting_network
-    
     volumes:
-      - ./logs:/app/logs:rw
-      - ./temp:/app/temp:rw
+      - app_logs:/app/logs
+      - app_temp:/app/temp
     
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 60s
-      timeout: 30s
-      retries: 5
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 60s
     
     deploy:
+      replicas: 2
       resources:
         limits:
           memory: 1G
@@ -106,145 +139,173 @@ services:
         delay: 5s
         max_attempts: 3
         window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+
 
   # =============================================================================
-  # Nginx Reverse Proxy (Optional)
+  # Reverse Proxy & Load Balancer (Nginx)
   # =============================================================================
   nginx:
-    image: nginx:alpine
-    container_name: sportsbetting_nginx_prod
-    restart: always
+    image: nginx:1.25-alpine
+    container_name: ${PROXY_CONTAINER_NAME:-sportsbetting_nginx_prod}
+    restart: unless-stopped
     
     ports:
       - "80:80"
       - "443:443"
     
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - ./logs/nginx:/var/log/nginx
+      - ./nginx/prod.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    
+    networks:
+      - sportsbetting_frontend
+      - sportsbetting_backend
     
     depends_on:
       - api
     
-    networks:
-      - sportsbetting_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
     
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    
-    profiles:
-      - proxy
-
-  # =============================================================================
-  # Redis Cache (Optional)
-  # =============================================================================
-  redis:
-    image: redis:7-alpine
-    container_name: sportsbetting_redis_prod
-    restart: always
-    
-    ports:
-      - "6379:6379"
-    
-    volumes:
-      - redis_data:/data
-      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    
-    networks:
-      - sportsbetting_network
-    
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "nginx", "-t"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 10s
+
+  # =============================================================================
+  # Redis Cache (Production with authentication)
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ${REDIS_CONTAINER_NAME:-sportsbetting_redis_prod}
+    restart: unless-stopped
+    
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+    
+    # NO EXPOSED PORTS - Redis should only be accessible internally
+    
+    volumes:
+      - redis_data:/data
+    
+    networks:
+      - sportsbetting_backend
     
     deploy:
       resources:
         limits:
-          memory: 256M
           cpus: '0.5'
+          memory: 512M
         reservations:
+          cpus: '0.1'
           memory: 128M
-          cpus: '0.25'
     
-    profiles:
-      - cache
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # =============================================================================
-  # Monitoring with Prometheus (Optional)
+  # Database Backup Service
   # =============================================================================
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: sportsbetting_prometheus_prod
-    restart: always
-    
-    ports:
-      - "9090:9090"
-    
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-    
-    networks:
-      - sportsbetting_network
-    
-    profiles:
-      - monitoring
-
-  # =============================================================================
-  # Grafana Dashboard (Optional)
-  # =============================================================================
-  grafana:
-    image: grafana/grafana:latest
-    container_name: sportsbetting_grafana_prod
-    restart: always
-    
-    ports:
-      - "3000:3000"
+  db_backup:
+    image: postgres:15-alpine
+    container_name: ${BACKUP_CONTAINER_NAME:-sportsbetting_backup_prod}
+    restart: unless-stopped
     
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
-      - GF_USERS_ALLOW_SIGN_UP=false
+      POSTGRES_DB: ${POSTGRES_DB:-sportsbetting_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-sportsbetting_user}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-"0 2 * * *"}  # Daily at 2 AM
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+    
+    secrets:
+      - source: db_password
+        target: /run/secrets/postgres_password
+        uid: '999'
+        gid: '999'
+        mode: 0600
     
     volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-    
-    depends_on:
-      - prometheus
+      - postgres_backups:/backups
+      - ./scripts/backup.sh:/scripts/backup.sh:ro
     
     networks:
-      - sportsbetting_network
+      - sportsbetting_backend
     
-    profiles:
-      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    
+    command: >
+      sh -c "
+      apk add --no-cache dcron &&
+      echo '${BACKUP_SCHEDULE} /scripts/backup.sh' | crontab - &&
+      crond -f -l 2
+      "
+
+# =============================================================================
+# MONITORING SERVICES (Optional - uncomment for advanced monitoring)
+# =============================================================================
+#  prometheus:
+#    image: prom/prometheus:latest
+#    container_name: sportsbetting_prometheus_prod
+#    restart: unless-stopped
+#    profiles: [monitoring]
+#    # ... configuration
+#
+#  grafana:
+#    image: grafana/grafana:latest
+#    container_name: sportsbetting_grafana_prod  
+#    restart: unless-stopped
+#    profiles: [monitoring]
+#    # ... configuration
 
 # =============================================================================
 # Networks
 # =============================================================================
 networks:
-  sportsbetting_network:
+  sportsbetting_frontend:
     driver: bridge
-    name: ${NETWORK_NAME:-sportsbetting_network_prod}
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.20.0.0/16
+    name: ${FRONTEND_NETWORK_NAME:-sportsbetting_frontend_prod}
+    driver_opts:
+      com.docker.network.bridge.name: sb-frontend
+    
+  sportsbetting_backend:
+    driver: bridge
+    name: ${BACKEND_NETWORK_NAME:-sportsbetting_backend_prod}
+    internal: true  # Backend network is isolated from external access
+    driver_opts:
+      com.docker.network.bridge.name: sb-backend
 
 # =============================================================================
 # Volumes
@@ -252,16 +313,56 @@ networks:
 volumes:
   postgres_data:
     driver: local
-    name: sportsbetting_postgres_data_prod
+    name: ${POSTGRES_VOLUME_NAME:-sportsbetting_postgres_data_prod}
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_DATA_PATH:-/opt/sportsbetting/data/postgres}
+  
+  postgres_backups:
+    driver: local
+    name: ${POSTGRES_BACKUP_VOLUME:-sportsbetting_postgres_backups_prod}
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_BACKUP_PATH:-/opt/sportsbetting/backups}
   
   redis_data:
     driver: local
-    name: sportsbetting_redis_data_prod
+    name: ${REDIS_VOLUME_NAME:-sportsbetting_redis_data_prod}
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_DATA_PATH:-/opt/sportsbetting/data/redis}
   
-  prometheus_data:
+  app_logs:
     driver: local
-    name: sportsbetting_prometheus_data_prod
+    name: ${APP_LOGS_VOLUME:-sportsbetting_app_logs_prod}
+    driver_opts:
+      type: none
+      o: bind
+      device: ${APP_LOGS_PATH:-/opt/sportsbetting/logs}
   
-  grafana_data:
+  app_temp:
     driver: local
-    name: sportsbetting_grafana_data_prod
+    name: ${APP_TEMP_VOLUME:-sportsbetting_app_temp_prod}
+    driver_opts:
+      type: none
+      o: bind
+      device: ${APP_TEMP_PATH:-/opt/sportsbetting/temp}
+
+# =============================================================================
+# Secrets
+# =============================================================================
+secrets:
+  db_password:
+    external: true
+    name: sportsbetting_db_password
+  
+  jwt_secret:
+    external: true
+    name: sportsbetting_jwt_secret
+  
+  db_connection:
+    external: true
+    name: sportsbetting_db_connection

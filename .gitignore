@@ -6,6 +6,9 @@
 # dotenv files
 .env
 .env.local
+.env.prod
+
+certbot/
 
 api.pid
 
@@ -489,3 +492,137 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 .claude/settings.local.json
+
+# =============================================================================
+# SSL CERTIFICATES AND SECURITY
+# =============================================================================
+# Never commit SSL certificates or private keys
+ssl/
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# Certbot/Let's Encrypt
+certbot/
+renewal-script.sh
+
+# Temporary SSL files
+*.bak
+
+# =============================================================================
+# HTTP TEST FILES AND SENSITIVE CONFIGURATIONS
+# =============================================================================
+# HTTP test files may contain JWT tokens and sensitive test data
+*.http
+*.rest
+requests.http
+api.http
+test.http
+SportsBetting.Api.http
+
+# =============================================================================
+# ENVIRONMENT AND CONFIGURATION FILES
+# =============================================================================
+# Environment files with credentials
+.env*
+!.env.example
+.env.prod
+.env.development
+.env.staging
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.Local.json
+
+# Database connection files
+database.json
+connection-strings.json
+
+# =============================================================================
+# DOCKER AND DEPLOYMENT SECRETS
+# =============================================================================
+# Docker secrets and production configurations
+docker-compose.override.yml
+docker-compose.prod.yml
+docker-compose.final-prod.yml
+docker-compose.simple-prod.yml
+docker-secrets/
+secrets/
+
+# Keep only essential Docker files
+!docker-compose.yml
+!Dockerfile
+
+# =============================================================================
+# SSH KEYS AND CERTIFICATES
+# =============================================================================
+# SSH keys and EC2 private keys
+*.pem
+id_rsa*
+id_ed25519*
+known_hosts
+authorized_keys
+
+# =============================================================================
+# SCRIPTS WITH SENSITIVE DATA
+# =============================================================================
+# Deployment scripts may contain IPs and credentials
+scripts/deploy-to-ec2.sh
+scripts/fix-ssl-cloudflare.sh
+scripts/setup-tunnel.sh
+scripts/setup-cloudflare-ssl.sh
+scripts/setup-letsencrypt-cloudflare.sh
+scripts/backup.sh
+scripts/*deploy*
+scripts/*production*
+scripts/*ec2*
+scripts/*ssl*
+scripts/*backup*
+
+# =============================================================================
+# NGINX AND PROXY CONFIGURATIONS
+# =============================================================================
+# Nginx configs may contain server-specific settings
+nginx/prod.conf
+nginx/cloudflare-flexible.conf
+nginx/ssl.conf
+nginx/certbot.conf
+proxy.conf
+
+# =============================================================================
+# LOGS AND TEMPORARY FILES
+# =============================================================================
+# Log files may contain sensitive information
+*.log
+logs/
+tunnel.log
+access.log
+error.log
+audit.log
+
+# Temporary files
+*.tmp
+*.temp
+*.pid
+api.pid
+
+# =============================================================================
+# BACKUP AND DATABASE FILES
+# =============================================================================
+# Database backups and dumps
+*.sql
+*.dump
+*.backup
+backups/
+database-backup/
+
+# =============================================================================
+# CLOUDFLARE AND DNS CONFIGURATIONS
+# =============================================================================
+# Cloudflare credentials and tunnel configs
+.cloudflared/
+tunnel.json
+*.tunnel
+dns-config.json
