@@ -1,20 +1,5 @@
-
-# =============================================================================
-# SPORTS BETTING API - DOCKER COMPOSE PRODUCTION
-# =============================================================================
-# Production-ready configuration with security and performance optimizations
-# 
-# Prerequisites:
-# 1. Create secrets: docker secret create db_password /path/to/db_password.txt
-# 2. Create secrets: docker secret create jwt_secret /path/to/jwt_secret.txt
-# 3. Ensure SSL certificates are available in ./ssl/ directory
-# 4. Review and update all environment variables
-# =============================================================================
-
 services:
-  # =============================================================================
-  # PostgreSQL Database Service
-  # =============================================================================
+  
   postgres:
     image: postgres:15-alpine
     container_name: ${POSTGRES_CONTAINER_NAME:-sportsbetting_postgres_prod}
@@ -24,7 +9,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-sportsbetting_prod}
       POSTGRES_USER: ${POSTGRES_USER:-sportsbetting_user}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-      # SSL Configuration
+
       POSTGRES_HOST_AUTH_METHOD: md5
       POSTGRES_SSL_MODE: require
     
@@ -34,8 +19,6 @@ services:
         uid: '999'
         gid: '999'
         mode: 0600
-    
-    # NO EXPOSED PORTS - Database should only be accessible internally
     
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -70,9 +53,6 @@ services:
       -c ssl_cert_file=/var/lib/postgresql/ssl/server.crt
       -c ssl_key_file=/var/lib/postgresql/ssl/server.key
 
-  # =============================================================================
-  # Sports Betting API Service
-  # =============================================================================
   api:
     build:
       context: .
@@ -105,7 +85,6 @@ services:
       - source: db_connection
         target: /run/secrets/db_connection
     
-    # NO EXPOSED PORTS - API should only be accessible through reverse proxy
     
     networks:
       - sportsbetting_backend
@@ -145,10 +124,6 @@ services:
         failure_action: rollback
         order: start-first
 
-
-  # =============================================================================
-  # Reverse Proxy & Load Balancer (Nginx)
-  # =============================================================================
   nginx:
     image: nginx:1.25-alpine
     container_name: ${PROXY_CONTAINER_NAME:-sportsbetting_nginx_prod}
@@ -186,9 +161,6 @@ services:
       retries: 3
       start_period: 10s
 
-  # =============================================================================
-  # Redis Cache (Production with authentication)
-  # =============================================================================
   redis:
     image: redis:7-alpine
     container_name: ${REDIS_CONTAINER_NAME:-sportsbetting_redis_prod}
@@ -201,8 +173,6 @@ services:
       --maxmemory-policy allkeys-lru
       --appendonly yes
       --appendfsync everysec
-    
-    # NO EXPOSED PORTS - Redis should only be accessible internally
     
     volumes:
       - redis_data:/data
@@ -225,9 +195,6 @@ services:
       timeout: 10s
       retries: 3
 
-  # =============================================================================
-  # Database Backup Service
-  # =============================================================================
   db_backup:
     image: postgres:15-alpine
     container_name: ${BACKUP_CONTAINER_NAME:-sportsbetting_backup_prod}
@@ -273,26 +240,6 @@ services:
       crond -f -l 2
       "
 
-# =============================================================================
-# MONITORING SERVICES (Optional - uncomment for advanced monitoring)
-# =============================================================================
-#  prometheus:
-#    image: prom/prometheus:latest
-#    container_name: sportsbetting_prometheus_prod
-#    restart: unless-stopped
-#    profiles: [monitoring]
-#    # ... configuration
-#
-#  grafana:
-#    image: grafana/grafana:latest
-#    container_name: sportsbetting_grafana_prod  
-#    restart: unless-stopped
-#    profiles: [monitoring]
-#    # ... configuration
-
-# =============================================================================
-# Networks
-# =============================================================================
 networks:
   sportsbetting_frontend:
     driver: bridge
@@ -303,13 +250,10 @@ networks:
   sportsbetting_backend:
     driver: bridge
     name: ${BACKEND_NETWORK_NAME:-sportsbetting_backend_prod}
-    internal: true  # Backend network is isolated from external access
+    internal: true  
     driver_opts:
       com.docker.network.bridge.name: sb-backend
 
-# =============================================================================
-# Volumes
-# =============================================================================
 volumes:
   postgres_data:
     driver: local
@@ -351,9 +295,6 @@ volumes:
       o: bind
       device: ${APP_TEMP_PATH:-/opt/sportsbetting/temp}
 
-# =============================================================================
-# Secrets
-# =============================================================================
 secrets:
   db_password:
     external: true
