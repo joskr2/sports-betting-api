@@ -1,6 +1,6 @@
 # 🏆 Sports Betting API
 
-Una API REST completa para apuestas deportivas desarrollada con .NET 8, Entity Framework Core y PostgreSQL, con despliegue en producción en AWS EC2 usando Docker y Cloudflare.
+Una API REST completa para apuestas deportivas desarrollada con .NET 9, Entity Framework Core y PostgreSQL, con despliegue en producción en AWS EC2 usando Docker y Cloudflare.
 
 ## 📋 Tabla de Contenidos
 
