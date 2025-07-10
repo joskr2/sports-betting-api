@@ -55,7 +55,7 @@ Una API REST completa para apuestas deportivas desarrollada con .NET 8, Entity F
 ## 🛠️ Tecnologías Utilizadas
 
 ### Backend
-- **.NET 8** - Framework principal
+- **.NET 9** - Framework principal
 - **ASP.NET Core** - Web API
 - **Entity Framework Core** - ORM
 - **PostgreSQL 15** - Base de datos principal
@@ -98,7 +98,7 @@ Internet Users
       │ proxy_pass :5000
       ▼
 ┌─────────────────┐ Container: api
-│  .NET 8 API     │ Port: 5000 (internal)
+│  .NET 9 API     │ Port: 5000 (internal)
 │ Sports Betting  │ Network: backend only
 └─────────────────┘
       │
@@ -121,7 +121,7 @@ Developer Machine
       │
       ▼
 ┌─────────────────┐ Container: api
-│  .NET 8 API     │ Port: 5000→5000
+│  .NET 9 API     │ Port: 5000→5000
 │   Development   │ Hot reload enabled
 │   Environment   │ Swagger UI enabled
 └─────────────────┘
@@ -138,7 +138,7 @@ Developer Machine
 
 ### Prerrequisitos
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 - [PostgreSQL](https://www.postgresql.org/download/) (opcional, se puede usar Docker)
 - [Git](https://git-scm.com/)
