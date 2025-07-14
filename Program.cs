@@ -13,7 +13,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 
 var connectionString = BuildConnectionString(builder.Configuration);
-Console.WriteLine($"DEBUG: Connection String = {connectionString}");
+if (builder.Environment.IsDevelopment() || builder.Environment.IsProduction())
+{
+    Console.WriteLine($"DEBUG: Connection String = {connectionString}");
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
@@ -271,7 +274,15 @@ await app.RunAsync();
 // Función para construir la cadena de conexión
 static string BuildConnectionString(IConfiguration configuration)
 {
-    // Prioridad: Variables de entorno > appsettings.json
+    // First try the complete connection string from environment/config
+    var baseConnectionString = configuration.GetConnectionString("DefaultConnection");
+    if (!string.IsNullOrEmpty(baseConnectionString) && !baseConnectionString.Contains("${"))
+    {
+        Console.WriteLine("DEBUG: Using complete connection string from configuration");
+        return baseConnectionString;
+    }
+    
+    // Fallback: build from individual components
     var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? 
                  configuration["ConnectionStrings:Host"] ?? 
                  "localhost";
@@ -288,32 +299,6 @@ static string BuildConnectionString(IConfiguration configuration)
                      configuration["ConnectionStrings:Password"] ?? 
                      "postgres";
     
-    // Si existe una cadena de conexión completa, usarla como base
-    var baseConnectionString = configuration.GetConnectionString("DefaultConnection");
-    if (!string.IsNullOrEmpty(baseConnectionString))
-    {
-        // Si la cadena contiene variables sin resolver (${...}), construir desde cero
-        if (baseConnectionString.Contains("${"))
-        {
-            Console.WriteLine("DEBUG: Connection string contains unresolved variables, building from components");
-            return $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode=Disable";
-        }
-        
-        // Si la cadena está completa, reemplazar componentes individuales si hay variables de entorno
-        var connectionStringBuilder = new Npgsql.NpgsqlConnectionStringBuilder(baseConnectionString);
-        
-        if (Environment.GetEnvironmentVariable("DB_HOST") != null)
-            connectionStringBuilder.Host = dbHost;
-        if (Environment.GetEnvironmentVariable("DB_NAME") != null)
-            connectionStringBuilder.Database = dbName;
-        if (Environment.GetEnvironmentVariable("DB_USER") != null)
-            connectionStringBuilder.Username = dbUser;
-        if (Environment.GetEnvironmentVariable("DB_PASSWORD") != null)
-            connectionStringBuilder.Password = dbPassword;
-            
-        return connectionStringBuilder.ConnectionString;
-    }
-    
-    // Si no hay cadena base, construir desde cero
+    Console.WriteLine("DEBUG: Building connection string from components");
     return $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode=Disable";
 }

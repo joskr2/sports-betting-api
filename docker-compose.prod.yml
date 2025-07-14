@@ -62,18 +62,15 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
-      - DB_HOST=postgres
-      - DB_NAME=${POSTGRES_DB}
-      - DB_USER=${POSTGRES_USER}  
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - ConnectionStrings__DefaultConnection=Host=postgres;Database=sportsbetting_prod;Username=postgres;Password=SportsBetting2024!;SSL Mode=Disable
-      - JwtSettings__SecretKey=${JWT_SECRET}
-      - JwtSettings__Issuer=${JWT_ISSUER:-SportsBettingAPI}
-      - JwtSettings__Audience=${JWT_AUDIENCE:-SportsBettingClients}
-      - JwtSettings__TokenExpirationDays=${JWT_EXPIRATION_DAYS:-1}
-      - UserSettings__InitialBalance=${INITIAL_BALANCE:-1000.00}
-      - ApiSettings__MinBetAmount=${MIN_BET_AMOUNT:-1.00}
-      - ApiSettings__MaxBetAmount=${MAX_BET_AMOUNT:-10000.00}
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};SSL Mode=Disable
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER:-SportsBettingAPI}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-SportsBettingClients}
+      - JWT_EXPIRATION_DAYS=${JWT_EXPIRATION_DAYS:-1}
+      - INITIAL_BALANCE=${INITIAL_BALANCE:-1000.00}
+      - MIN_BET_AMOUNT=${MIN_BET_AMOUNT:-1.00}
+      - MAX_BET_AMOUNT=${MAX_BET_AMOUNT:-10000.00}
+      - LOG_LEVEL=Warning
       - Logging__LogLevel__Default=Warning
       - Logging__LogLevel__Microsoft=Error
       - Logging__LogLevel__System=Error
