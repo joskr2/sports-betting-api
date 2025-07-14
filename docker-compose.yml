@@ -51,13 +51,14 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5000
       - ConnectionStrings__DefaultConnection=${DATABASE_URL}
-      - JwtSettings__Secret=${JWT_SECRET}
-      - JwtSettings__Issuer=${JWT_ISSUER}
-      - JwtSettings__Audience=${JWT_AUDIENCE}
-      - JwtSettings__TokenExpirationDays=${JWT_EXPIRATION_DAYS:-7}
-      - UserSettings__InitialBalance=${INITIAL_BALANCE:-1000.00}
-      - UserSettings__MinBetAmount=${MIN_BET_AMOUNT:-1.00}
-      - UserSettings__MaxBetAmount=${MAX_BET_AMOUNT:-1000.00}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_EXPIRATION_DAYS=${JWT_EXPIRATION_DAYS:-7}
+      - INITIAL_BALANCE=${INITIAL_BALANCE:-1000.00}
+      - MIN_BET_AMOUNT=${MIN_BET_AMOUNT:-1.00}
+      - MAX_BET_AMOUNT=${MAX_BET_AMOUNT:-1000.00}
+      - LOG_LEVEL=${LOG_LEVEL:-Information}
       - Logging__LogLevel__Default=${LOG_LEVEL:-Information}
       - Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command=Information
     

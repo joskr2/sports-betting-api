@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 
 var connectionString = BuildConnectionString(builder.Configuration);
+Console.WriteLine($"DEBUG: Connection String = {connectionString}");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
@@ -56,16 +57,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-        var secretKey = jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT Secret not configured");
+        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET") 
+                       ?? jwtSettings["SecretKey"] 
+                       ?? throw new InvalidOperationException("JWT Secret not configured");
         
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
             ValidateIssuer = true,
-            ValidIssuer = jwtSettings["Issuer"],
+            ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? jwtSettings["Issuer"],
             ValidateAudience = true,
-            ValidAudience = jwtSettings["Audience"],
+            ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? jwtSettings["Audience"],
             RequireExpirationTime = true,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
@@ -275,7 +278,7 @@ static string BuildConnectionString(IConfiguration configuration)
     
     var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? 
                  configuration["ConnectionStrings:Database"] ?? 
-                 "sportsbetting";
+                 "sportsbetting_dev";
     
     var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? 
                  configuration["ConnectionStrings:Username"] ?? 
@@ -283,13 +286,20 @@ static string BuildConnectionString(IConfiguration configuration)
     
     var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? 
                      configuration["ConnectionStrings:Password"] ?? 
-                     "password";
+                     "postgres";
     
     // Si existe una cadena de conexión completa, usarla como base
     var baseConnectionString = configuration.GetConnectionString("DefaultConnection");
     if (!string.IsNullOrEmpty(baseConnectionString))
     {
-        // Reemplazar componentes individuales si hay variables de entorno
+        // Si la cadena contiene variables sin resolver (${...}), construir desde cero
+        if (baseConnectionString.Contains("${"))
+        {
+            Console.WriteLine("DEBUG: Connection string contains unresolved variables, building from components");
+            return $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode=Disable";
+        }
+        
+        // Si la cadena está completa, reemplazar componentes individuales si hay variables de entorno
         var connectionStringBuilder = new Npgsql.NpgsqlConnectionStringBuilder(baseConnectionString);
         
         if (Environment.GetEnvironmentVariable("DB_HOST") != null)

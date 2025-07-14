@@ -133,7 +133,8 @@ namespace SportsBetting.Api.Infrastructure.Services
         {
             try
             { 
-                var secretKey = _configuration["JwtSettings:SecretKey"] 
+                var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET") 
+                    ?? _configuration["JwtSettings:SecretKey"] 
                     ?? throw new InvalidOperationException("JWT secret key not configured");
                 
                 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
@@ -152,8 +153,8 @@ namespace SportsBetting.Api.Infrastructure.Services
                 };
                 
                 var token = new JwtSecurityToken(
-                    issuer: _configuration["JwtSettings:Issuer"],
-                    audience: _configuration["JwtSettings:Audience"],
+                    issuer: Environment.GetEnvironmentVariable("JWT_ISSUER") ?? _configuration["JwtSettings:Issuer"],
+                    audience: Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? _configuration["JwtSettings:Audience"],
                     claims: claims,
                     expires: DateTime.UtcNow.AddDays(_configuration.GetValue<int>("JwtSettings:TokenExpirationDays", 7)), // Token válido por días configurables
                     signingCredentials: credentials
@@ -178,7 +179,8 @@ namespace SportsBetting.Api.Infrastructure.Services
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var secretKey = _configuration["JwtSettings:SecretKey"] 
+                var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET") 
+                    ?? _configuration["JwtSettings:SecretKey"] 
                     ?? throw new InvalidOperationException("JWT secret key not configured");
                 
                 var key = Encoding.UTF8.GetBytes(secretKey);
@@ -188,9 +190,9 @@ namespace SportsBetting.Api.Infrastructure.Services
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(key),
                     ValidateIssuer = true,
-                    ValidIssuer = _configuration["JwtSettings:Issuer"],
+                    ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? _configuration["JwtSettings:Issuer"],
                     ValidateAudience = true,
-                    ValidAudience = _configuration["JwtSettings:Audience"],
+                    ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? _configuration["JwtSettings:Audience"],
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero // Sin tolerancia para expiración
                 };

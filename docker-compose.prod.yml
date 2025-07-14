@@ -6,26 +6,22 @@ services:
     restart: unless-stopped
     
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sportsbetting_prod}
-      POSTGRES_USER: ${POSTGRES_USER:-sportsbetting_user}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      POSTGRES_DB: ${POSTGRES_DB:-sportsbetting_prod}  
+      POSTGRES_USER: postgres
 
-      POSTGRES_HOST_AUTH_METHOD: md5
-      POSTGRES_SSL_MODE: require
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     
-    secrets:
-      - source: db_password
-        target: /run/secrets/postgres_password
-        uid: '999'
-        gid: '999'
-        mode: 0600
+    # secrets:
+    #   - source: db_password
+    #     target: /run/secrets/postgres_password
+    #     uid: '999'
+    #     gid: '999'
+    #     mode: 0600
     
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - postgres_backups:/backups
-      - ./scripts/init-db-prod.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-      - ./postgres/ssl:/var/lib/postgresql/ssl:ro
-      - ./postgres/conf/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     
     networks:
       - sportsbetting_backend
@@ -46,12 +42,12 @@ services:
           memory: 1G
           cpus: '1.0'
     
-    command: >
-      postgres
-      -c config_file=/etc/postgresql/postgresql.conf
-      -c ssl=on
-      -c ssl_cert_file=/var/lib/postgresql/ssl/server.crt
-      -c ssl_key_file=/var/lib/postgresql/ssl/server.key
+    # command: >
+    #   postgres
+    #   -c config_file=/etc/postgresql/postgresql.conf
+    #   -c ssl=on
+    #   -c ssl_cert_file=/var/lib/postgresql/ssl/server.crt
+    #   -c ssl_key_file=/var/lib/postgresql/ssl/server.key
 
   api:
     build:
@@ -59,19 +55,25 @@ services:
       dockerfile: Dockerfile
       target: runtime
     
+    container_name: sportsbetting_api_prod
     restart: unless-stopped
     
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
-      - ConnectionStrings__DefaultConnection=${DATABASE_URL}
+      - DB_HOST=postgres
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}  
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=sportsbetting_prod;Username=postgres;Password=SportsBetting2024!;SSL Mode=Disable
+      - JwtSettings__SecretKey=${JWT_SECRET}
       - JwtSettings__Issuer=${JWT_ISSUER:-SportsBettingAPI}
       - JwtSettings__Audience=${JWT_AUDIENCE:-SportsBettingClients}
       - JwtSettings__TokenExpirationDays=${JWT_EXPIRATION_DAYS:-1}
       - UserSettings__InitialBalance=${INITIAL_BALANCE:-1000.00}
-      - UserSettings__MinBetAmount=${MIN_BET_AMOUNT:-1.00}
-      - UserSettings__MaxBetAmount=${MAX_BET_AMOUNT:-10000.00}
+      - ApiSettings__MinBetAmount=${MIN_BET_AMOUNT:-1.00}
+      - ApiSettings__MaxBetAmount=${MAX_BET_AMOUNT:-10000.00}
       - Logging__LogLevel__Default=Warning
       - Logging__LogLevel__Microsoft=Error
       - Logging__LogLevel__System=Error
@@ -80,10 +82,10 @@ services:
       - DOTNET_GCServer=true
       - DOTNET_GCConcurrent=true
     
-    secrets:
-      - jwt_secret
-      - source: db_connection
-        target: /run/secrets/db_connection
+    # secrets:
+    #   - jwt_secret
+    #   - source: db_connection
+    #     target: /run/secrets/db_connection
     
     
     networks:
@@ -104,25 +106,25 @@ services:
       retries: 3
       start_period: 60s
     
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 512M
-          cpus: '0.5'
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        order: start-first
+    # deploy:
+    #   replicas: 2
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #       cpus: '1.0'
+    #     reservations:
+    #       memory: 512M
+    #       cpus: '0.5'
+    #   restart_policy:
+    #     condition: on-failure
+    #     delay: 5s
+    #     max_attempts: 3
+    #     window: 120s
+    #   update_config:
+    #     parallelism: 1
+    #     delay: 10s
+    #     failure_action: rollback
+    #     order: start-first
 
   nginx:
     image: nginx:1.25-alpine
@@ -205,13 +207,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-sportsbetting_user}
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-"0 2 * * *"}  # Daily at 2 AM
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     
-    secrets:
-      - source: db_password
-        target: /run/secrets/postgres_password
-        uid: '999'
-        gid: '999'
-        mode: 0600
+    # secrets:
+    #   - source: db_password
+    #     target: /run/secrets/postgres_password
+    #     uid: '999'
+    #     gid: '999'
+    #     mode: 0600
     
     volumes:
       - postgres_backups:/backups
@@ -258,52 +261,32 @@ volumes:
   postgres_data:
     driver: local
     name: ${POSTGRES_VOLUME_NAME:-sportsbetting_postgres_data_prod}
-    driver_opts:
-      type: none
-      o: bind
-      device: ${POSTGRES_DATA_PATH:-/opt/sportsbetting/data/postgres}
   
   postgres_backups:
     driver: local
     name: ${POSTGRES_BACKUP_VOLUME:-sportsbetting_postgres_backups_prod}
-    driver_opts:
-      type: none
-      o: bind
-      device: ${POSTGRES_BACKUP_PATH:-/opt/sportsbetting/backups}
   
   redis_data:
     driver: local
     name: ${REDIS_VOLUME_NAME:-sportsbetting_redis_data_prod}
-    driver_opts:
-      type: none
-      o: bind
-      device: ${REDIS_DATA_PATH:-/opt/sportsbetting/data/redis}
   
   app_logs:
     driver: local
     name: ${APP_LOGS_VOLUME:-sportsbetting_app_logs_prod}
-    driver_opts:
-      type: none
-      o: bind
-      device: ${APP_LOGS_PATH:-/opt/sportsbetting/logs}
   
   app_temp:
     driver: local
     name: ${APP_TEMP_VOLUME:-sportsbetting_app_temp_prod}
-    driver_opts:
-      type: none
-      o: bind
-      device: ${APP_TEMP_PATH:-/opt/sportsbetting/temp}
 
-secrets:
-  db_password:
-    external: true
-    name: sportsbetting_db_password
-  
-  jwt_secret:
-    external: true
-    name: sportsbetting_jwt_secret
-  
-  db_connection:
-    external: true
-    name: sportsbetting_db_connection
+# secrets:
+#   db_password:
+#     external: true
+#     name: sportsbetting_db_password
+#   
+#   jwt_secret:
+#     external: true
+#     name: sportsbetting_jwt_secret
+#   
+#   db_connection:
+#     external: true
+#     name: sportsbetting_db_connection
