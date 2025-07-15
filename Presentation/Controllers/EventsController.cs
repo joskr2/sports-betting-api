@@ -12,15 +12,9 @@ namespace SportsBetting.Api.Presentation.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Produces("application/json")]
-    public class EventsController : BaseController
+    public class EventsController(IEventService eventService, ILogger<EventsController> logger) : BaseController(logger)
     {
-        private readonly IEventService _eventService;
-        
-        public EventsController(IEventService eventService, ILogger<EventsController> logger) 
-            : base(logger)
-        {
-            _eventService = eventService ?? throw new ArgumentNullException(nameof(eventService));
-        }
+        private readonly IEventService _eventService = eventService ?? throw new ArgumentNullException(nameof(eventService));
         
         [HttpGet]
         [ProducesResponseType(typeof(IEnumerable<EventResponseDto>), StatusCodes.Status200OK)]
@@ -56,7 +50,7 @@ namespace SportsBetting.Api.Presentation.Controllers
                 
                 var eventDetail = await _eventService.GetEventByIdAsync(id);
                 
-                if (eventDetail == null)
+                if (eventDetail is null)
                 {
                     _logger.LogWarning("Event not found: {EventId}", id);
                     return ErrorResponse("Event not found", 404);
@@ -103,7 +97,7 @@ namespace SportsBetting.Api.Presentation.Controllers
                 
                 var result = new
                 {
-                    EventId = id,
+                    id,
                     IsAvailable = isAvailable,
                     Message = isAvailable ? "Event is available for betting" : "Event is not available for betting",
                     CheckedAt = DateTime.UtcNow
@@ -158,7 +152,7 @@ namespace SportsBetting.Api.Presentation.Controllers
                 _logger.LogInformation("Updating status for event {EventId} to {Status} by user {UserEmail}", 
                     id, request.Status, userEmail);
                 
-                if (!Enum.IsDefined(typeof(EventStatus), request.Status))
+                if (!Enum.IsDefined<EventStatus>(request.Status))
                 {
                     throw new ArgumentException($"Invalid event status: {request.Status}");
                 }
@@ -172,8 +166,8 @@ namespace SportsBetting.Api.Presentation.Controllers
                 
                 var result = new
                 {
-                    EventId = id,
-                    NewStatus = request.Status.ToString(),
+                    id,
+                    Status = request.Status.ToString(),
                     UpdatedBy = userEmail,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -244,9 +238,9 @@ namespace SportsBetting.Api.Presentation.Controllers
                     },
                     Filters = new
                     {
-                        Team = team,
-                        Date = date,
-                        Status = status
+                        team,
+                        date,
+                        status
                     }
                 };
                 

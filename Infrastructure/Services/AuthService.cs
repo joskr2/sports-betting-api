@@ -11,22 +11,14 @@ using SportsBetting.Api.Infrastructure.Data;
 namespace SportsBetting.Api.Infrastructure.Services
 {
 
-    public class AuthService : IAuthService
+    public class AuthService(
+        ApplicationDbContext context,
+        IConfiguration configuration,
+        ILogger<AuthService> logger) : IAuthService
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IConfiguration _configuration;
-        private readonly ILogger<AuthService> _logger;
-        
-
-        public AuthService(
-            ApplicationDbContext context, 
-            IConfiguration configuration,
-            ILogger<AuthService> logger)
-        {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
-            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
+        private readonly ApplicationDbContext _context = context ?? throw new ArgumentNullException(nameof(context));
+        private readonly IConfiguration _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        private readonly ILogger<AuthService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         
 
         public async Task<AuthResponseDto?> RegisterAsync(RegisterRequestDto request)
@@ -36,9 +28,9 @@ namespace SportsBetting.Api.Infrastructure.Services
                 _logger.LogInformation("Attempting to register user with email: {Email}", request.Email);
                 
                 var existingUser = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
+                    .FirstOrDefaultAsync(u => string.Equals(u.Email, request.Email, StringComparison.OrdinalIgnoreCase));
                 
-                if (existingUser != null)
+                if (existingUser is not null)
                 {
                     _logger.LogWarning("Registration failed: Email {Email} already exists", request.Email);
                     return null;
@@ -88,9 +80,9 @@ namespace SportsBetting.Api.Infrastructure.Services
                 _logger.LogInformation("Login attempt for email: {Email}", request.Email);
                 
                 var user = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
+                    .FirstOrDefaultAsync(u => string.Equals(u.Email, request.Email, StringComparison.OrdinalIgnoreCase));
                 
-                if (user == null)
+                if (user is null)
                 {
                     _logger.LogWarning("Login failed: User not found for email {Email}", request.Email);
                     return null;
@@ -200,7 +192,7 @@ namespace SportsBetting.Api.Infrastructure.Services
                 var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
                 
                 var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (userIdClaim == null || !int.TryParse(userIdClaim, out var userId))
+                if (userIdClaim is null || !int.TryParse(userIdClaim, out var userId))
                 {
                     return null;
                 }
@@ -221,7 +213,7 @@ namespace SportsBetting.Api.Infrastructure.Services
             try
             {
                 return await _context.Users
-                    .AnyAsync(u => u.Email.ToLower() == email.ToLower());
+                    .AnyAsync(u => string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase));
             }
             catch (Exception ex)
             {

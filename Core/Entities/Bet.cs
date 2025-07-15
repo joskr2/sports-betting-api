@@ -72,7 +72,7 @@ namespace SportsBetting.Api.Core.Entities
         
         public bool IsValidForEvent()
         {
-            if (Event == null) return false;
+            if (Event is null) return false;
             
             return Event.IsValidTeam(SelectedTeam) && 
                    Event.IsAvailableForBetting() &&

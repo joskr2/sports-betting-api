@@ -12,16 +12,9 @@ namespace SportsBetting.Api.Presentation.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Produces("application/json")]
-    public class AuthController : BaseController
+    public class AuthController(IAuthService authService, ILogger<AuthController> logger) : BaseController(logger)
     {
-        private readonly IAuthService _authService;
-        
-
-        public AuthController(IAuthService authService, ILogger<AuthController> logger) 
-            : base(logger)
-        {
-            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
-        }
+        private readonly IAuthService _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         
 
         [HttpPost("register")]
@@ -41,7 +34,7 @@ namespace SportsBetting.Api.Presentation.Controllers
                 }
                 var result = await _authService.RegisterAsync(request);
                 
-                if (result == null)
+                if (result is null)
                 {
                     _logger.LogError("Registration failed for unknown reason: {Email}", request.Email);
                     return ErrorResponse("Registration failed", 400);
@@ -71,7 +64,7 @@ namespace SportsBetting.Api.Presentation.Controllers
             {
                 var result = await _authService.LoginAsync(request);
                 
-                if (result == null)
+                if (result is null)
                 {
                     _logger.LogWarning("Login failed for email: {Email}", request.Email);
                     return ErrorResponse("Invalid email or password", 401);
@@ -102,7 +95,7 @@ namespace SportsBetting.Api.Presentation.Controllers
                 
                 var user = await _authService.ValidateTokenAsync(request.Token);
                 
-                if (user == null)
+                if (user is null)
                 {
                     return ErrorResponse("Invalid or expired token", 401);
                 }
@@ -138,7 +131,7 @@ namespace SportsBetting.Api.Presentation.Controllers
                 _logger.LogInformation("Fetching profile for user: {UserId}", userId);
                 
                 var user = await _authService.GetUserByIdAsync(userId);
-                if (user == null)
+                if (user is null)
                 {
                     throw new ArgumentException("User not found");
                 }
