@@ -109,6 +109,31 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowCredentials();
     });
+    
+    options.AddPolicy("ProductionPolicy", policy =>
+    {
+        // Permitir el dominio del BFF Lambda, API principal y dominios de desarrollo
+        policy.WithOrigins(
+                "https://hf3bbankw5wc2uovwju4m6zvku0zuozj.lambda-url.us-east-2.on.aws",
+                "https://api-kurax-demo-jos.uk",
+                "http://localhost:3000", 
+                "http://localhost:8000",
+                "https://localhost:3000",
+                "https://localhost:8000"
+              )
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+    
+    // Política temporal para debugging - más permisiva
+    options.AddPolicy("DebugPolicy", policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -201,7 +226,16 @@ app.UseSwaggerUI(options =>
     options.RoutePrefix = app.Environment.IsDevelopment() ? string.Empty : "docs";
 });
 
-app.UseCors("DevelopmentPolicy");
+// Usar política CORS basada en el entorno
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("DevelopmentPolicy");
+}
+else
+{
+    // Usar política de producción con dominio Lambda específico
+    app.UseCors("ProductionPolicy");
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
