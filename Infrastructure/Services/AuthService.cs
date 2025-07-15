@@ -28,7 +28,7 @@ namespace SportsBetting.Api.Infrastructure.Services
                 _logger.LogInformation("Attempting to register user with email: {Email}", request.Email);
                 
                 var existingUser = await _context.Users
-                    .FirstOrDefaultAsync(u => string.Equals(u.Email, request.Email, StringComparison.OrdinalIgnoreCase));
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
                 
                 if (existingUser is not null)
                 {
@@ -80,7 +80,7 @@ namespace SportsBetting.Api.Infrastructure.Services
                 _logger.LogInformation("Login attempt for email: {Email}", request.Email);
                 
                 var user = await _context.Users
-                    .FirstOrDefaultAsync(u => string.Equals(u.Email, request.Email, StringComparison.OrdinalIgnoreCase));
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
                 
                 if (user is null)
                 {
@@ -213,7 +213,7 @@ namespace SportsBetting.Api.Infrastructure.Services
             try
             {
                 return await _context.Users
-                    .AnyAsync(u => string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase));
+                    .AnyAsync(u => u.Email.ToLower() == email.ToLower());
             }
             catch (Exception ex)
             {
